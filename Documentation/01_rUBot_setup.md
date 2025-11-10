@@ -119,6 +119,7 @@ When you power the rUBot mecanum robot, it connects to the wifi `local network: 
   #git config --global user.email "xxx@alumnes.ub.edu"
   #git config --global user.name "your_github_username"
   ````
+  
   > Modify the `ROS_DOMAIN_ID`, the `user.email` and the `user.name` accordingly.
 - Open a new terminal and verify the working nodes from your rUBot_x:
   ````shell
