@@ -25,6 +25,7 @@ class RobotSelfControl(Node):
 
         self._msg = Twist()
         self._msg.linear.x = self._forwardSpeed * self._speedFactor
+        self._msg.linear.y = self._forwardSpeed * self._speedFactor
         self._msg.angular.z = 0.0
 
         self._cmdVel = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -108,27 +109,32 @@ class RobotSelfControl(Node):
         if closest_distance < self._distanceLimit:
             if zone == "FRONT":
                 self._msg.linear.x = -self._forwardSpeed * self._speedFactor
+                self._msg.linear.y = 0.0
                 self._msg.angular.z = self._rotationSpeed * self._speedFactor
             elif zone == "LEFT":
-                self._msg.linear.x = -self._forwardSpeed * self._speedFactor
-                self._msg.angular.z = -self._rotationSpeed * self._speedFactor
+                self._msg.linear.x = 0.0
+                self._msg.linear.y = -self._forwardSpeed * self._speedFactor
             elif zone == "RIGHT":
-                self._msg.linear.x = -self._forwardSpeed * self._speedFactor
-                self._msg.angular.z = self._rotationSpeed * self._speedFactor
+                self._msg.linear.x = 0.0
+                self._msg.linear.y = self._forwardSpeed * self._speedFactor
             elif zone in ["BACK_LEFT", "BACK_RIGHT"]:
                 self._msg.linear.x = self._forwardSpeed * self._speedFactor
+                self._msg.linear.y = 0.0
                 self._msg.angular.z = 0.0
             else:
                 self._msg.linear.x = self._forwardSpeed * self._speedFactor
+                self._msg.linear.y = 0.0
                 self._msg.angular.z = 0.0
         else:
             self._msg.linear.x = self._forwardSpeed * self._speedFactor
+            self._msg.linear.y = 0.0
             self._msg.angular.z = 0.0
 
     def stop(self):
         self._shutting_down = True
         stop_msg = Twist()
         stop_msg.linear.x = 0.0
+        stop_msg.linear.z = 0.0
         stop_msg.angular.z = 0.0
         self._cmdVel.publish(stop_msg)
         rclpy.spin_once(self, timeout_sec=0.1)
