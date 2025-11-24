@@ -106,6 +106,10 @@ class WallFollower(Node):
         FR_RIGHT    = []
         RIGHT       = []
         BACK_RIGHT  = []
+        BACK        = []
+        FR_LEFT     = []
+        LEFT        = []
+        BACK_LEFT   = []
 
         for i, d in enumerate(scan.ranges):
             if not math.isfinite(d):
@@ -123,12 +127,24 @@ class WallFollower(Node):
                 RIGHT.append(d)
             elif -160 <= ang < -110:
                 BACK_RIGHT.append(d)
+            elif -200 <= ang < -160:
+                BACK.append(d)
+            elif 70 >= ang > 20:
+                FR_LEFT.append(d)
+            elif 110 >= ang > 70:
+                LEFT.append(d)
+            elif 160 >= ang > 110:
+                BACK_LEFT.append(d)
 
         # Minimal distances
         min_front      = min(FRONT)      if FRONT      else float('inf')
         min_fr_right   = min(FR_RIGHT)   if FR_RIGHT   else float('inf')
         min_right      = min(RIGHT)      if RIGHT      else float('inf')
         min_back_right = min(BACK_RIGHT) if BACK_RIGHT else float('inf')
+        min_back       = min(BACK)       if BACK       else float('inf')
+        min_fr_left    = min(FR_LEFT)    if FR_LEFT    else float('inf')
+        min_left       = min(LEFT)       if LEFT       else float('inf')
+        min_back_left  = min(BACK_LEFT)  if BACK_LEFT  else float('inf')
 
         twist = Twist()
         action = ""
@@ -138,17 +154,15 @@ class WallFollower(Node):
         #----------------------------------------------------------
         if min_front < self.base_distance:
             twist.linear.x = 0.0
-            twist.linear.y = 0.0
-            twist.angular.z = self.v_ang * 4.0
+            twist.linear.y = self.v_lin
             action = f"FRONT {min_front:.2f} m → turn LEFT"
 
         #----------------------------------------------------------
         # RULE 2: FRONT-RIGHT obstacle → slow + left
         #----------------------------------------------------------
         elif min_fr_right < self.base_distance:
-            twist.linear.x = 0.0
+            twist.linear.x = self.v_lin
             twist.linear.y = self.v_lin
-            twist.angular.z = self.v_ang * 4.0
             action = f"FRONT-RIGHT {min_fr_right:.2f} m → turn LEFT"
 
         #----------------------------------------------------------
@@ -162,7 +176,6 @@ class WallFollower(Node):
                 # Inside band: go straight
                 twist.linear.x = self.v_lin
                 twist.linear.y = 0.0
-                twist.angular.z = 0.0
                 action = (
                     f"RIGHT ~OK ({min_right:.2f} m, target "
                     f"{self.base_distance:.2f}±{self.tol:.2f}) → STRAIGHT"
@@ -170,9 +183,8 @@ class WallFollower(Node):
 
             elif error < 0:
                 # Too close to right wall → slow forward + stronger left turn
-                twist.linear.x = self.v_lin * 0.5
+                twist.linear.x = self.v_lin
                 twist.linear.y = self.v_lin * 0.3
-                twist.angular.z = self.v_ang * 4.0
                 action = (
                     f"RIGHT too CLOSE ({min_right:.2f} m < "
                     f"{self.base_distance:.2f}-{self.tol:.2f}) → "
@@ -181,9 +193,8 @@ class WallFollower(Node):
 
             else:
                 # Too far from right wall → slow forward + stronger right turn
-                twist.linear.x = self.v_lin * 0.3
+                twist.linear.x = self.v_lin
                 twist.linear.y = -self.v_lin * 0.3
-                twist.angular.z = -self.v_ang * 2.0
                 action = (
                     f"RIGHT too FAR ({min_right:.2f} m > "
                     f"{self.base_distance:.2f}+{self.tol:.2f}) → "
@@ -196,11 +207,74 @@ class WallFollower(Node):
         elif math.isfinite(min_back_right) and (
             not math.isfinite(min_right) or min_back_right <= min_right
         ):
-            twist.linear.x = self.v_lin * 0.1
-            twist.linear.y = 0.0
-            twist.angular.z = -3.0 * self.v_ang
+            twist.linear.x = self.v_lin
+            twist.linear.y = -self.v_lin
             action = (
                 f"BACK-RIGHT {min_back_right:.2f} m → "
+                f"very slow + STRONG RIGHT turn (2*w)"
+            )
+        #----------------------------------------------------------
+        # RULE 5: BACK obstacle → turn left
+        #----------------------------------------------------------
+        if min_back < self.base_distance:
+            twist.linear.x = 0.0
+            twist.linear.y = -self.v_lin
+            action = f"BACK {min_front:.2f} m → turn LEFT"
+
+        #----------------------------------------------------------
+        # RULE 6: FRONT-LEFT obstacle → slow + left
+        #----------------------------------------------------------
+        elif min_fr_left < self.base_distance:
+            twist.linear.x = self.v_lin
+            twist.linear.y = -self.v_lin
+            action = f"FRONT-LEFT {min_fr_right:.2f} m → turn RIGHT"
+
+        #----------------------------------------------------------
+        # RULE 7: LEFT visible → control with tolerance band (no vy)
+        #----------------------------------------------------------
+        elif math.isfinite(min_left):
+            # error > 0 → too far; error < 0 → too close
+            error = min_left - self.base_distance
+
+            if abs(error) <= self.tol:
+                # Inside band: go straight
+                twist.linear.x = self.v_lin
+                twist.linear.y = 0.0
+                action = (
+                    f"LEFT ~OK ({min_right:.2f} m, target "
+                    f"{self.base_distance:.2f}±{self.tol:.2f}) → STRAIGHT"
+                )
+
+            elif error < 0:
+                # Too close to left wall
+                twist.linear.x = self.v_lin
+                twist.linear.y = -self.v_lin * 0.3
+                action = (
+                    f"LEFT too CLOSE ({min_right:.2f} m < "
+                    f"{self.base_distance:.2f}-{self.tol:.2f}) → "
+                    f"forward + strong LEFT turn"
+                )
+
+            else:
+                # Too far from right wall → slow forward + stronger right turn
+                twist.linear.x = self.v_lin
+                twist.linear.y = self.v_lin * 0.3
+                action = (
+                    f"LEFT too FAR ({min_left:.2f} m > "
+                    f"{self.base_distance:.2f}+{self.tol:.2f}) → "
+                    f"forward + strong RIGHT turn"
+                )
+
+        #----------------------------------------------------------
+        # RULE 8: BACK-LEFT → only if it is the most relevant wall
+        #----------------------------------------------------------
+        elif math.isfinite(min_back_left) and (
+            not math.isfinite(min_left) or min_back_left <= min_left
+        ):
+            twist.linear.x = self.v_lin
+            twist.linear.y = self.v_lin
+            action = (
+                f"BACK-LET {min_back_right:.2f} m → "
                 f"very slow + STRONG RIGHT turn (2*w)"
             )
 
