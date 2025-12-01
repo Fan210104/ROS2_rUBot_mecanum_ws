@@ -148,7 +148,7 @@ class WallFollower(Node):
         elif min_fr_right < self.base_distance:
             twist.linear.x = 0.0
             twist.linear.y = self.v_lin
-            twist.angular.z = self.v_ang * 1.0
+            twist.angular.z = self.v_ang * 1.5
             action = f"FRONT-RIGHT {min_fr_right:.2f} m → turn LEFT"
 
         #----------------------------------------------------------
@@ -183,7 +183,7 @@ class WallFollower(Node):
                 # Too far from right wall → slow forward + stronger right turn
                 twist.linear.x = self.v_lin * 0.3
                 twist.linear.y = -self.v_lin * 0.3
-                twist.angular.z = -self.v_ang * 1.0
+                twist.angular.z = -self.v_ang * 0.75
                 action = (
                     f"RIGHT too FAR ({min_right:.2f} m > "
                     f"{self.base_distance:.2f}+{self.tol:.2f}) → "
