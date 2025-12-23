@@ -10,7 +10,7 @@ import tf_transformations
 class NavigationTask(Node):
     def __init__(self):
         super().__init__('custon_nav2')
-
+        self.declare_parameter('use_sim_time', False)
         # --- Nav2 Simple Commander ---
         self.navigator = BasicNavigator()
 
@@ -99,6 +99,7 @@ class NavigationTask(Node):
         )
 
         while not self.navigator.isTaskComplete():
+            rclpy.spin_once(self, timeout_sec=0.1)
             feedback = self.navigator.getFeedback()
             # Si vols més info, descomenta:
             # if feedback is not None and hasattr(feedback, 'distance_remaining'):
@@ -137,6 +138,21 @@ def main(args=None):
     wp_pose = navigation_node.get_selected_waypoint_pose()
     navigation_node.get_logger().info("Navigating to intermediate waypoint...")
     navigation_node.go_to_pose(wp_pose)
+
+    navigation_node.get_logger().info("Reading Signal...")
+    
+    pitstop = navigation_node.get_clock().now().nanoseconds / 1e9
+    while rclpy.ok():
+        now = navigation_node.get_clock().now().nanoseconds / 1e9
+        if (now - pitstop) >= 1.5: #Temps de pausa en front del senyal 
+            break
+        rclpy.spin_once(navigation_node, timeout_sec=0.1)
+
+    # --- 3) Anar al waypoint (YOLO o YAML) ---
+    wp_pose = navigation_node.get_selected_waypoint_pose()
+    navigation_node.get_logger().info("Navigating to corrected waypoint...")
+    navigation_node.go_to_pose(wp_pose)
+
 
     # --- 2) Anar al destí final ---
     x_t, y_t, yaw_t = navigation_node.target_pose_xyz
